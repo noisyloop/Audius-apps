@@ -1,4 +1,3 @@
-import { authWorker } from './authWorker'
 import type { CreateKey, LocalStorage, PrivateKey } from './types'
 
 const SCRYPT_N = 32768
@@ -53,14 +52,6 @@ export function randomBytes(length: number) {
   return bytes
 }
 
-export function WebWorker(worker: () => void) {
-  if (typeof window !== 'undefined' && window.Worker) {
-    const code = worker.toString()
-    const blob = new Blob(['(' + code + ')()'])
-    return new window.Worker(URL.createObjectURL(blob))
-  } else throw new Error('Cannot call web worker on the server')
-}
-
 function isReactNativeEnv() {
   return typeof navigator !== 'undefined' && navigator.product === 'ReactNative'
 }
@@ -72,10 +63,6 @@ function isWebEnv() {
     !!window.Worker &&
     !isReactNativeEnv()
   )
-}
-
-function isNodeEnv() {
-  return typeof window === 'undefined' || window === null
 }
 
 export function getPlatformLocalStorage(): LocalStorage {
@@ -92,33 +79,21 @@ export function getPlatformCreateKey(): CreateKey {
    * Given a user encryptStr and initialization vector, generate a private key
    * @param encryptStr String to encrypt (can be user password or some kind of lookup key)
    * @param ivHex hex string iv value. Its utf8 bytes (not the decoded hex) are the salt.
+   *
+   * Uses the bundled @noble/hashes scrypt on every platform. The old web path
+   * ran scrypt-js loaded at runtime from a CDN, which handed the user's
+   * password to unpinned third-party code. scryptAsync yields to the event
+   * loop so the UI stays responsive while it runs.
    */
   const createKey = async (encryptStr: string, ivHex: string) => {
-    if (isWebEnv()) {
-      return new Promise<PrivateKey>((resolve) => {
-        const worker = WebWorker(authWorker)
-        worker.postMessage(JSON.stringify({ encryptStr, ivHex }))
-
-        worker.onmessage = (event) => {
-          resolve(event.data)
-        }
-      })
-    }
-
-    if (isNodeEnv()) {
-      const { scryptAsync } = await import('@noble/hashes/scrypt')
-      const encoder = new TextEncoder()
-      const keyBuffer = await scryptAsync(
-        encoder.encode(encryptStr),
-        encoder.encode(ivHex),
-        { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, dkLen: SCRYPT_DK_LEN }
-      )
-      return { keyHex: bytesToHexString(keyBuffer), keyBuffer }
-    }
-
-    throw new Error(
-      'Please pass in valid createKey function into the Hedgehog constructor'
+    const { scryptAsync } = await import('@noble/hashes/scrypt')
+    const encoder = new TextEncoder()
+    const keyBuffer = await scryptAsync(
+      encoder.encode(encryptStr),
+      encoder.encode(ivHex),
+      { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, dkLen: SCRYPT_DK_LEN }
     )
+    return { keyHex: bytesToHexString(keyBuffer), keyBuffer }
   }
 
   return createKey
