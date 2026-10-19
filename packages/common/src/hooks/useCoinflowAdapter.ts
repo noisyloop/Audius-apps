@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import {
+import type {
   Connection,
   PublicKey,
   Transaction,
@@ -12,7 +12,6 @@ import { useWalletAddresses } from '~/api'
 import { useQueryContext } from '~/api/tan-query/utils'
 import { useAppContext } from '~/context'
 import { Name } from '~/models/Analytics'
-import { decorateCoinflowWithdrawalTransaction } from '~/services/audius-backend'
 import {
   BuyUSDCError,
   PurchaseContentError,
@@ -51,7 +50,14 @@ export const useCoinflowWithdrawalAdapter = () => {
     const initWallet = async () => {
       const wallet = await solanaWalletService.getKeypair()
       const sdk = await audiusSdk()
-      const connection = sdk.services.solanaClient.connection
+      const connection = await sdk.services.solanaClient.getConnection()
+      const [
+        { VersionedTransaction },
+        { decorateCoinflowWithdrawalTransaction }
+      ] = await Promise.all([
+        import('@solana/web3.js'),
+        import('~/services/audius-backend/solana')
+      ])
 
       if (!wallet) {
         console.error(
@@ -159,7 +165,7 @@ export const useCoinflowAdapter = ({
     const initWallet = async () => {
       const wallet = await solanaWalletService.getKeypair()
       const sdk = await audiusSdk()
-      const connection = sdk.services.solanaClient.connection
+      const connection = await sdk.services.solanaClient.getConnection()
       if (!wallet) {
         console.error(
           'useCoinflowWithdrawalAdapter: Missing solana root wallet'

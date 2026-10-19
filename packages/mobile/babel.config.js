@@ -4,6 +4,7 @@ module.exports = (api) => {
     'babel-plugin-react-compiler',
     ['@babel/plugin-transform-react-jsx', { runtime: 'automatic' }],
     '@babel/plugin-transform-export-namespace-from',
+    './babel-plugin-cherry-pick-imports',
     [
       'module-resolver',
       {
@@ -31,7 +32,7 @@ module.exports = (api) => {
     plugins.push(['transform-remove-console', { exclude: ['error', 'warn'] }])
   }
 
-  plugins.push('react-native-reanimated/plugin')
+  plugins.push('react-native-worklets/plugin')
 
   return {
     presets: [

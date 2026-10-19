@@ -25,21 +25,23 @@ import { convertBigIntToAmountObject } from '~/utils'
 
 import { RetryPolicy, STANDARD_RETRY_POLICY } from './retryPolicy'
 import {
+  addTransferFromUserBankInstructions,
+  buildAndSendTransaction,
+  createTokenConfig,
+  getJupiterSwapInstructions,
+  prepareOutputUserBank,
+  validateAndCreateTokenConfigs
+} from './solanaUtils'
+import {
   SwapDependencies,
   SwapTokensParams,
   SwapStatus,
   SwapErrorType
 } from './types'
 import {
-  addTransferFromUserBankInstructions,
-  buildAndSendTransaction,
-  createTokenConfig,
   findTokenByAddress,
   getCoinPoolState,
-  getJupiterSwapInstructions,
-  invalidateSwapQueries,
-  prepareOutputUserBank,
-  validateAndCreateTokenConfigs
+  invalidateSwapQueries
 } from './utils'
 
 const AUDIO_MINT = TOKEN_LISTING_MAP.AUDIO.address
@@ -167,7 +169,7 @@ async function executeMeteoraSwap(
     )
 
     // Create a new transaction that combines our setup instructions with the swap instructions
-    const connection = sdk.services.solanaClient.connection
+    const connection = await sdk.services.solanaClient.getConnection()
 
     // Decompose the swap transaction to extract the DBC swap instruction
     const swapMessage = swapTx.message
@@ -316,7 +318,8 @@ export abstract class BaseSwapExecutor {
     tokenAccount: PublicKey,
     decimals: number
   ): Promise<{ amount: string; uiAmount: number }> {
-    const connection = this.dependencies.sdk.services.solanaClient.connection
+    const connection =
+      await this.dependencies.sdk.services.solanaClient.getConnection()
     const balance = await connection.getTokenAccountBalance(
       tokenAccount,
       'confirmed'

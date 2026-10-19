@@ -1,5 +1,3 @@
-import { getAccount } from '@solana/spl-token'
-import { PublicKey } from '@solana/web3.js'
 import { useQuery } from '@tanstack/react-query'
 
 import { useQueryContext } from '~/api/tan-query/utils/QueryContext'
@@ -35,8 +33,12 @@ export const useWalletOwner = (
       if (!walletAddress) return null
 
       try {
-        const sdk = await audiusSdk()
-        const connection = sdk.services.solanaClient.connection
+        const [sdk, { getAccount }, { PublicKey }] = await Promise.all([
+          audiusSdk(),
+          import('@solana/spl-token'),
+          import('@solana/web3.js')
+        ])
+        const connection = await sdk.services.solanaClient.getConnection()
         const { owner } = await getAccount(
           connection,
           new PublicKey(walletAddress)

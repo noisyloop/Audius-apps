@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 
 import { useCurrentAccountUser } from '@audius/common/api'
 import { SolanaWalletAddress } from '@audius/common/models'
-import { MEMO_PROGRAM_ID, registerNiceModalId } from '@audius/common/services'
+import { MEMO_PROGRAM_ID } from '@audius/common/src/services/audius-backend/solana'
 import { isValidSolAddress, profilePageActions } from '@audius/common/store'
 import {
   Button,
@@ -205,7 +205,7 @@ export const PayoutWalletModal = NiceModal.create(() => {
 
           const usdcMint = new PublicKey(env.USDC_MINT_ADDRESS)
           const addressPubkey = new PublicKey(address)
-          const connection = sdk.services.solanaClient.connection
+          const connection = await sdk.services.solanaClient.getConnection()
           const info = await connection.getAccountInfo(addressPubkey)
 
           let usdcAta: string | null = null
@@ -351,6 +351,3 @@ export const PayoutWalletModal = NiceModal.create(() => {
     </Modal>
   )
 })
-
-NiceModal.register('PayoutWallet', PayoutWalletModal)
-registerNiceModalId('PayoutWallet')

@@ -37,10 +37,6 @@ import {
 } from './middleware'
 import { OAuth } from './oauth'
 import { TokenStoreLocalStorage } from './oauth/TokenStoreLocalStorage'
-import {
-  PaymentRouterClient,
-  getDefaultPaymentRouterClientConfig
-} from './services'
 import { AntiAbuseOracle } from './services/AntiAbuseOracle/AntiAbuseOracle'
 import { getDefaultAntiAbuseOracleSelectorConfig } from './services/AntiAbuseOracleSelector'
 import { AntiAbuseOracleSelector } from './services/AntiAbuseOracleSelector/AntiAbuseOracleSelector'
@@ -50,22 +46,15 @@ import {
   EntityManagerClient,
   getDefaultEntityManagerConfig
 } from './services/EntityManager'
-import {
-  EthereumService,
-  getDefaultEthereumServiceConfig
-} from './services/Ethereum'
+import { LazyEthereumService } from './services/Ethereum/LazyEthereumService'
+import { getDefaultEthereumServiceConfig } from './services/Ethereum/getDefaultConfig'
 import { Logger } from './services/Logger'
 import { SolanaRelay } from './services/Solana/SolanaRelay'
 import { SolanaRelayWalletAdapter } from './services/Solana/SolanaRelayWalletAdapter'
-import {
-  getDefaultClaimableTokensConfig,
-  ClaimableTokensClient
-} from './services/Solana/programs/ClaimableTokensClient'
-import {
-  RewardManagerClient,
-  getDefaultRewardManagerClentConfig
-} from './services/Solana/programs/RewardManagerClient'
-import { SolanaClient } from './services/Solana/programs/SolanaClient'
+import { LazyClaimableTokensClient } from './services/Solana/programs/ClaimableTokensClient/LazyClaimableTokensClient'
+import { LazySolanaClient } from './services/Solana/programs/LazySolanaClient'
+import { LazyPaymentRouterClient } from './services/Solana/programs/PaymentRouterClient/LazyPaymentRouterClient'
+import { LazyRewardManagerClient } from './services/Solana/programs/RewardManagerClient/LazyRewardManagerClient'
 import { getDefaultSolanaClientConfig } from './services/Solana/programs/getDefaultConfig'
 import { Storage, getDefaultStorageServiceConfig } from './services/Storage'
 import {
@@ -266,37 +255,38 @@ const initializeServices = ({
       solanaRelay
     })
 
+  // The Solana client, on-chain program clients and Ethereum contracts are
+  // lazy facades that load their implementations (@solana/web3.js, anchor,
+  // @audius/spl, @audius/eth ABIs) on first use, so creating the SDK doesn't
+  // pull them in.
   const solanaClient =
     config.services?.solanaClient ??
-    new SolanaClient({
+    (new LazySolanaClient({
       ...getDefaultSolanaClientConfig(servicesConfig),
       solanaWalletAdapter,
       logger
-    })
+    }) as unknown as ServicesContainer['solanaClient'])
 
   const claimableTokensClient =
     config.services?.claimableTokensClient ??
-    new ClaimableTokensClient({
-      ...getDefaultClaimableTokensConfig(servicesConfig),
-      solanaClient,
-      audiusWalletClient,
-      logger
-    })
+    (new LazyClaimableTokensClient(
+      { solanaClient, audiusWalletClient, logger },
+      servicesConfig
+    ) as unknown as ServicesContainer['claimableTokensClient'])
 
   const rewardManagerClient =
     config.services?.rewardManagerClient ??
-    new RewardManagerClient({
-      ...getDefaultRewardManagerClentConfig(servicesConfig),
-      solanaClient,
-      logger
-    })
+    (new LazyRewardManagerClient(
+      { solanaClient, logger },
+      servicesConfig
+    ) as unknown as ServicesContainer['rewardManagerClient'])
 
   const paymentRouterClient =
     config.services?.paymentRouterClient ??
-    new PaymentRouterClient({
-      ...getDefaultPaymentRouterClientConfig(servicesConfig),
-      solanaClient
-    })
+    (new LazyPaymentRouterClient(
+      { solanaClient },
+      servicesConfig
+    ) as unknown as ServicesContainer['paymentRouterClient'])
 
   const ethPublicClient =
     config.services?.ethPublicClient ??
@@ -314,12 +304,12 @@ const initializeServices = ({
 
   const ethereum =
     config.services?.ethereum ??
-    new EthereumService({
+    (new LazyEthereumService({
       ...getDefaultEthereumServiceConfig(servicesConfig),
       publicClient: ethPublicClient,
       walletClient: ethWalletClient,
       audiusWalletClient
-    })
+    }) as unknown as ServicesContainer['ethereum'])
 
   const services: ServicesContainer = {
     storageNodeSelector,
